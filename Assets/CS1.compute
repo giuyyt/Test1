@@ -1,0 +1,84 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel Update
+#include "UnityCG.cginc"
+
+RWStructuredBuffer<float3> PositionBuffer;
+RWStructuredBuffer<float4x4> MatBuffer;
+RWStructuredBuffer<float4> ColorBuffer;
+
+CBUFFER_START(Params)
+    float R;
+    float RandomNum;
+    float SpeedMulTime;
+CBUFFER_END
+
+
+float Random(float id)
+{
+    return frac(sin(id)*10000.0);
+}
+
+float3 RandomPositionGenerate(float id)
+{
+    float x = Random(id * 0.01334);
+    float y = Random(id * 0.01197);
+
+    float phi = 2 * UNITY_PI * x+SpeedMulTime;
+    float cosTheta = 1 - 2 * y;
+    float sinTheta = sqrt(1 - cosTheta * cosTheta);
+    return float3(sinTheta * cos(phi)* R, sinTheta * sin(phi)* R, cosTheta* R);
+
+}
+
+float4x4 m_scale(float4x4 m, float3 v)
+{
+    float x = v.x, y = v.y, z = v.z;
+
+    m[0][0] *= x; m[1][0] *= y; m[2][0] *= z;
+    m[0][1] *= x; m[1][1] *= y; m[2][1] *= z;
+    m[0][2] *= x; m[1][2] *= y; m[2][2] *= z;
+    m[0][3] *= x; m[1][3] *= y; m[2][3] *= z;
+
+    return m;
+}
+
+float4x4 m_translate(float4x4 m, float3 v)
+{
+    float x = v.x, y = v.y, z = v.z;
+    m[0][3] = x;
+    m[1][3] = y;
+    m[2][3] = z;
+    return m;
+}
+
+float4x4 composeNotRot(float3 position,float3 scale)
+{
+    float4x4 m = float4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 );
+    m = m_scale(m, scale);
+    m = m_translate(m, position);
+    return m;
+}
+
+float4 RandomColorGenerate(float id)
+{
+    float num = Random(id * 0.01334);
+    float r = 1.-num;
+    float g = 1.;
+    float b = num;
+    return float4(r,g,b,1);
+}
+
+
+[numthreads(64,1,1)]
+void Update (uint id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    float idF = id+0.01f;
+    PositionBuffer[id] = RandomPositionGenerate(idF);
+    float4x4 mat = float4x4(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 );
+    float3 scale = float3(0.1f,0.1f,0.1f);
+    mat = composeNotRot(PositionBuffer[id],scale);
+    MatBuffer[id] = mat;
+    ColorBuffer[id] = RandomColorGenerate(idF);
+    
+}
